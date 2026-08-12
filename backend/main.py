@@ -273,38 +273,49 @@ def editar_presupuesto(
         db.close()
 
 @app.put("/api/presupuestos/{presupuesto_id}/estado")
-def cambiar_estado_presupuesto(presupuesto_id: int, nuevo_estado: dict):
-
-    for presupuesto in presupuestos:
-
-        if presupuesto["id"] == presupuesto_id:
-
-            presupuesto["estado"] = nuevo_estado.get(
-                "estado",
-                presupuesto["estado"]
-            )
-
-        return presupuesto
-
-    return {
-        "error": "Presupuesto no encontrado."
-    }
-
-
-@app.get("/api/db-test")
-def probar_base_datos():
-    from database import SessionLocal
-
+def cambiar_estado_presupuesto(
+    presupuesto_id: int,
+    nuevo_estado: dict
+):
     db = SessionLocal()
 
     try:
-        clientes = db.query(Cliente).all()
+        presupuesto_db = (
+            db.query(Presupuesto)
+            .filter(Presupuesto.id == presupuesto_id)
+            .first()
+        )
+
+        if not presupuesto_db:
+            return {
+                "error": "Presupuesto no encontrado"
+            }
+
+        presupuesto_db.estado = nuevo_estado.get(
+            "estado",
+            presupuesto_db.estado
+        )
+
+        db.commit()
+        db.refresh(presupuesto_db)
 
         return {
-            "conexion": "ok",
-            "cantidad_clientes": len(clientes)
+            "id": presupuesto_db.id,
+            "cliente_id": presupuesto_db.cliente_id,
+            "descripcion": presupuesto_db.descripcion,
+            "mano_de_obra": presupuesto_db.mano_de_obra,
+            "total": presupuesto_db.total,
+            "estado": presupuesto_db.estado,
+            "materiales": [
+                {
+                    "id": material.id,
+                    "nombre": material.nombre,
+                    "cantidad": material.cantidad,
+                    "precio": material.precio
+                }
+                for material in presupuesto_db.materiales
+            ]
         }
 
     finally:
         db.close()
-
