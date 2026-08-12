@@ -164,6 +164,36 @@ def crear_presupuesto(presupuesto: dict):
     finally:
         db.close()
 
+@app.delete("/api/presupuestos/{presupuesto_id}")
+def eliminar_presupuesto(presupuesto_id: int):
+    db = SessionLocal()
+
+    try:
+        presupuesto_db = (
+            db.query(Presupuesto)
+            .filter(Presupuesto.id == presupuesto_id)
+            .first()
+        )
+
+        if not presupuesto_db:
+            return {
+                "error": "Presupuesto no encontrado"
+            }
+
+        db.query(Material).filter(
+            Material.presupuesto_id == presupuesto_id
+        ).delete()
+
+        db.delete(presupuesto_db)
+        db.commit()
+
+        return {
+            "mensaje": "Presupuesto eliminado correctamente"
+        }
+
+    finally:
+        db.close()
+
 @app.put("/api/presupuestos/{presupuesto_id}")
 def editar_presupuesto(
     presupuesto_id: int,
