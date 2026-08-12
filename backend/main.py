@@ -72,7 +72,58 @@ def crear_cliente(cliente: dict):
     finally:
         db.close()
 
+@app.put("/api/clientes/{cliente_id}")
+def editar_cliente(
+    cliente_id: int,
+    cliente: dict
+):
+    db = SessionLocal()
 
+    try:
+        cliente_db = (
+            db.query(Cliente)
+            .filter(Cliente.id == cliente_id)
+            .first()
+        )
+
+        if not cliente_db:
+            return {
+                "error": "Cliente no encontrado"
+            }
+
+        cliente_db.nombre = cliente.get(
+            "nombre",
+            cliente_db.nombre
+        )
+
+        cliente_db.telefono = cliente.get(
+            "telefono",
+            cliente_db.telefono
+        )
+
+        cliente_db.email = cliente.get(
+            "email",
+            cliente_db.email
+        )
+
+        cliente_db.direccion = cliente.get(
+            "direccion",
+            cliente_db.direccion
+        )
+
+        db.commit()
+        db.refresh(cliente_db)
+
+        return {
+            "id": cliente_db.id,
+            "nombre": cliente_db.nombre,
+            "telefono": cliente_db.telefono,
+            "email": cliente_db.email,
+            "direccion": cliente_db.direccion
+        }
+
+    finally:
+        db.close()
 
 
 presupuestos = []
