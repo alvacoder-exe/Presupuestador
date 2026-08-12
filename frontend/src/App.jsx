@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+import jsPDF from "jspdf";
 
 function App() {
   const [clientes, setClientes] = useState([]);
   const [presupuestos, setPresupuestos] = useState([]);
+  const [presupuestoEditando, setPresupuestoEditando] = useState(null);
   const [pantalla, setPantalla] = useState("dashboard");
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [mostrarFormularioPresupuesto, setMostrarFormularioPresupuesto] =
@@ -112,18 +114,207 @@ useEffect(() => {
   };
 
 
+  const editarPresupuesto = (presupuesto) => {
+    setPresupuestoEditando(presupuesto);
 
+    setFormularioPresupuesto({
+      cliente_id: presupuesto.cliente_id,
+      descripcion: presupuesto.descripcion,
+      mano_de_obra: presupuesto.mano_de_obra,
+    });
 
+    setMateriales(
+      presupuesto.materiales?.length
+        ? presupuesto.materiales
+        : [
+            {
+              nombre: "",
+              cantidad: "",
+              precio: "",
+            },
+          ]
+    );
 
+    setMostrarFormularioPresupuesto(true);
+  };
 
+  const eliminarPresupuesto = async (presupuesto) => {
+    const confirmar = window.confirm(
+      `¿Querés eliminar el presupuesto #${presupuesto.id}?`
+    );
 
+    if (!confirmar) {
+      return;
+    }
+
+    try {
+      const respuesta = await fetch(
+        `https://gestor-presupuesto-api.onrender.com/api/presupuestos/${presupuesto.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!respuesta.ok) {
+        const error = await respuesta.text();
+        throw new Error(error);
+      }
+
+      setPresupuestos(
+        presupuestos.filter(
+          (item) => item.id !== presupuesto.id
+        )
+      );
+
+    } catch (error) {
+      console.error("Error eliminando presupuesto:", error);
+    }
+  };
+
+  const generarPDF = (presupuesto) => {
+    const doc = new jsPDF();
+
+    const cliente = clientes.find(
+      (cliente) => cliente.id === presupuesto.cliente_id
+    );
+
+    doc.setFontSize(20);
+    doc.text("PRESUPUESTO", 20, 20);
+
+    doc.setFontSize(12);
+    doc.text(`Presupuesto #${presupuesto.id}`, 20, 30);
+
+    doc.text(
+      `Cliente: ${cliente ? cliente.nombre : "Cliente desconocido"}`,
+      20,
+      42
+    );
+
+    if (cliente?.telefono) {
+      doc.text(`Teléfono: ${cliente.telefono}`, 20, 50);
+    }
+
+    if (cliente?.direccion) {
+      doc.text(`Dirección: ${cliente.direccion}`, 20, 58);
+    }
+
+    doc.text(`Descripción: ${presupuesto.descripcion}`, 20, 70);
+
+    doc.setFontSize(14);
+    doc.text("Materiales", 20, 85);
+
+    let posicionY = 95;
+
+    presupuesto.materiales?.forEach((material) => {
+      const subtotal =
+        Number(material.cantidad) * Number(material.precio);
+
+      doc.setFontSize(11);
+
+      doc.text(
+        `${material.nombre} - ${material.cantidad} x $${Number(
+          material.precio
+        ).toLocaleString("es-AR")}`,
+        20,
+        posicionY
+      );
+
+      doc.text(
+        `$${subtotal.toLocaleString("es-AR")}`,
+        160,
+        posicionY
+      );
+
+      posicionY += 8;
+    });
+
+    posicionY += 8;
+
+    doc.text(
+      `Mano de obra: $${Number(
+        presupuesto.mano_de_obra
+      ).toLocaleString("es-AR")}`,
+      20,
+      posicionY
+    );
+
+    posicionY += 10;
+
+    doc.setFontSize(16);
+
+    doc.text(
+      `TOTAL: $${Number(presupuesto.total).toLocaleString("es-AR")}`,
+      20,
+      posicionY
+    );
+
+    posicionY += 10;
+
+    doc.setFontSize(12);
+
+    doc.text(
+      `Estado: ${presupuesto.estado}`,
+      20,
+      posicionY
+    );
+
+    doc.save(`presupuesto-${presupuesto.id}.pdf`);
+  };
 
   const crearPresupuesto = async (e) => {
     e.preventDefault();
 
+      if (presupuestoEditando) {
+        try {
+          const respuesta = await fetch(
+            `https://gestor-presupuesto-api.onrender.com/api/presupuestos/${presupuestoEditando.id}`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                cliente_id: Number(formularioPresupuesto.cliente_id),
+                descripcion: formularioPresupuesto.descripcion,
+                materiales: materiales.map((material) => ({
+                  nombre: material.nombre,
+                  cantidad: Number(material.cantidad),
+                  precio: Number(material.precio),
+                })),
+                mano_de_obra: Number(formularioPresupuesto.mano_de_obra),
+                total: calcularTotalPresupuesto(),
+              }),
+            }
+          );
+
+          if (!respuesta.ok) {
+            const error = await respuesta.text();
+            throw new Error(error);
+          }
+
+          const presupuestoActualizado = await respuesta.json();
+
+          setPresupuestos(
+            presupuestos.map((presupuesto) =>
+              presupuesto.id === presupuestoActualizado.id
+                ? presupuestoActualizado
+                : presupuesto
+            )
+          );
+
+          setPresupuestoEditando(null);
+          setMostrarFormularioPresupuesto(false);
+
+            return;
+        } catch (error) {
+          console.error("Error editando presupuesto:", error);
+          return;
+        }
+      }
+
     try {
       const respuesta = await fetch(
-        "https://gestor-presupuesto-api.onrender.com",
+        "https://gestor-presupuesto-api.onrender.com/api/presupuestos",
         {
           method: "POST",
           headers: {
@@ -748,12 +939,11 @@ useEffect(() => {
                     </div>
 
 
-                    <button
-                      type="submit"
-                      className="new-budget"
-                    >
-                      Guardar presupuesto
-                    </button>
+                    <button type="submit">
+                      {presupuestoEditando
+                        ? "Actualizar presupuesto"
+                        : "Guardar presupuesto"}
+                    </button> 
 
                     <button
                       type="button"
@@ -828,6 +1018,27 @@ useEffect(() => {
                             <strong>
                               ${(Number(presupuesto.total) || 0).toLocaleString("es-AR")}
                             </strong>
+
+                            <button
+                              className="edit-budget-button"
+                              onClick={() => editarPresupuesto(presupuesto)}
+                            >
+                              Editar
+                            </button>
+                            
+                            <button
+                              className="pdf-budget-button"
+                              onClick={() => generarPDF(presupuesto)}
+                            >
+                              PDF
+                            </button>
+
+                            <button
+                              className="delete-budget-button"
+                              onClick={() => eliminarPresupuesto(presupuesto)}
+                            >
+                              Eliminar
+                            </button>
 
                             <select
                               value={presupuesto.estado}
