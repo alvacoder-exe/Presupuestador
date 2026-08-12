@@ -164,6 +164,83 @@ def crear_presupuesto(presupuesto: dict):
     finally:
         db.close()
 
+@app.put("/api/presupuestos/{presupuesto_id}")
+def editar_presupuesto(
+    presupuesto_id: int,
+    presupuesto: dict
+):
+    db = SessionLocal()
+
+    try:
+        presupuesto_db = (
+            db.query(Presupuesto)
+            .filter(Presupuesto.id == presupuesto_id)
+            .first()
+        )
+
+        if not presupuesto_db:
+            return {
+                "error": "Presupuesto no encontrado"
+            }
+
+        presupuesto_db.cliente_id = presupuesto.get(
+            "cliente_id",
+            presupuesto_db.cliente_id
+        )
+
+        presupuesto_db.descripcion = presupuesto.get(
+            "descripcion",
+            presupuesto_db.descripcion
+        )
+
+        presupuesto_db.mano_de_obra = presupuesto.get(
+            "mano_de_obra",
+            presupuesto_db.mano_de_obra
+        )
+
+        presupuesto_db.total = presupuesto.get(
+            "total",
+            presupuesto_db.total
+        )
+
+        db.query(Material).filter(
+            Material.presupuesto_id == presupuesto_id
+        ).delete()
+
+        for material in presupuesto.get("materiales", []):
+
+            nuevo_material = Material(
+                presupuesto_id=presupuesto_id,
+                nombre=material.get("nombre"),
+                cantidad=material.get("cantidad", 0),
+                precio=material.get("precio", 0)
+            )
+
+            db.add(nuevo_material)
+
+        db.commit()
+        db.refresh(presupuesto_db)
+
+        return {
+            "id": presupuesto_db.id,
+            "cliente_id": presupuesto_db.cliente_id,
+            "descripcion": presupuesto_db.descripcion,
+            "mano_de_obra": presupuesto_db.mano_de_obra,
+            "total": presupuesto_db.total,
+            "estado": presupuesto_db.estado,
+            "materiales": [
+                {
+                    "id": material.id,
+                    "nombre": material.nombre,
+                    "cantidad": material.cantidad,
+                    "precio": material.precio
+                }
+                for material in presupuesto_db.materiales
+            ]
+        }
+
+    finally:
+        db.close()
 
 @app.put("/api/presupuestos/{presupuesto_id}/estado")
 def cambiar_estado_presupuesto(presupuesto_id: int, nuevo_estado: dict):
