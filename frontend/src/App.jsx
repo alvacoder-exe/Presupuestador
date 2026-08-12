@@ -34,7 +34,7 @@ function App() {
 
 useEffect(() => {
   // Obtener clientes
-  fetch("http://127.0.0.1:8000/api/clientes")
+  fetch("https://gestor-presupuesto-api.onrender.com/api/clientes")
     .then((respuesta) => respuesta.json())
     .then((datos) => setClientes(datos))
     .catch((error) => {
@@ -42,7 +42,7 @@ useEffect(() => {
     });
 
   // Obtener presupuestos
-  fetch("http://127.0.0.1:8000/api/presupuestos")
+  fetch("https://gestor-presupuesto-api.onrender.com/api/presupuestos")
     .then((respuesta) => respuesta.json())
     .then((datos) => setPresupuestos(datos))
     .catch((error) => {
@@ -123,7 +123,7 @@ useEffect(() => {
 
     try {
       const respuesta = await fetch(
-        "http://127.0.0.1:8000/api/presupuestos",
+        "https://gestor-presupuesto-api.onrender.com",
         {
           method: "POST",
           headers: {
@@ -180,7 +180,7 @@ useEffect(() => {
   const cambiarEstado = async (id, nuevoEstado) => {
     try {
       const respuesta = await fetch(
-        `http://127.0.0.1:8000/api/presupuestos/${id}/estado`,
+        `https://gestor-presupuesto-api.onrender.com/api/presupuestos/${id}/estado`,
         {
           method: "PUT",
           headers: {
@@ -218,7 +218,7 @@ useEffect(() => {
     e.preventDefault();
 
     try {
-      const respuesta = await fetch("http://127.0.0.1:8000/api/clientes", {
+      const respuesta = await fetch("https://gestor-presupuesto-api.onrender.com/api/clientes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
