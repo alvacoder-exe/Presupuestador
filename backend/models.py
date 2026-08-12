@@ -11,6 +11,7 @@ class Cliente(Base):
     nombre = Column(String, nullable=False)
     telefono = Column(String, nullable=True)
     email = Column(String, nullable=True)
+    direccion = Column(String, nullable=True)
 
     presupuestos = relationship(
         "Presupuesto",

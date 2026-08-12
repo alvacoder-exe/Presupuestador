@@ -4,8 +4,10 @@ import jsPDF from "jspdf";
 
 function App() {
   const [clientes, setClientes] = useState([]);
+  const [clienteEditando, setClienteEditando] = useState(null);
   const [presupuestos, setPresupuestos] = useState([]);
   const [presupuestoEditando, setPresupuestoEditando] = useState(null);
+  const [presupuestoSeleccionado, setPresupuestoSeleccionado] = useState(null);
   const [pantalla, setPantalla] = useState("dashboard");
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [mostrarFormularioPresupuesto, setMostrarFormularioPresupuesto] =
@@ -113,6 +115,9 @@ useEffect(() => {
     return manoDeObra + calcularTotalMateriales();
   };
 
+  const verPresupuesto = (presupuesto) => {
+    setPresupuestoSeleccionado(presupuesto);
+  };
 
   const editarPresupuesto = (presupuesto) => {
     setPresupuestoEditando(presupuesto);
@@ -165,6 +170,13 @@ useEffect(() => {
           (item) => item.id !== presupuesto.id
         )
       );
+
+      if (
+        presupuestoSeleccionado &&
+        presupuestoSeleccionado.id === presupuesto.id
+      ) {
+        setPresupuestoSeleccionado(null);
+      }
 
     } catch (error) {
       console.error("Error eliminando presupuesto:", error);
@@ -305,6 +317,20 @@ useEffect(() => {
           setPresupuestoEditando(null);
           setMostrarFormularioPresupuesto(false);
 
+          setFormularioPresupuesto({
+            cliente_id: "",
+            descripcion: "",
+            mano_de_obra: "",
+          });
+
+          setMateriales([
+            {
+              nombre: "",
+              cantidad: "",
+              precio: "",
+            },
+          ]);
+
             return;
         } catch (error) {
           console.error("Error editando presupuesto:", error);
@@ -401,25 +427,79 @@ useEffect(() => {
     }
   };
 
+  const editarCliente = (cliente) => {
+    setClienteEditando(cliente);
 
+    setFormulario({
+      nombre: cliente.nombre,
+      telefono: cliente.telefono || "",
+      email: cliente.email || "",
+      direccion: cliente.direccion || "",
+    });
 
-
+    setMostrarFormulario(true);
+  };
 
   const crearCliente = async (e) => {
     e.preventDefault();
 
     try {
-      const respuesta = await fetch("https://gestor-presupuesto-api.onrender.com/api/clientes", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formulario),
-      });
 
-      const nuevoCliente = await respuesta.json();
+      if (clienteEditando) {
 
-      setClientes([...clientes, nuevoCliente]);
+        const respuesta = await fetch(
+          `https://gestor-presupuesto-api.onrender.com/api/clientes/${clienteEditando.id}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(formulario),
+          }
+        );
+
+        if (!respuesta.ok) {
+          const error = await respuesta.text();
+          throw new Error(error);
+        }
+
+        const clienteActualizado = await respuesta.json();
+
+        setClientes(
+          clientes.map((cliente) =>
+            cliente.id === clienteActualizado.id
+              ? clienteActualizado
+              : cliente
+          )
+        );
+
+        setClienteEditando(null);
+
+      } else {
+
+        const respuesta = await fetch(
+          "https://gestor-presupuesto-api.onrender.com/api/clientes",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(formulario),
+          }
+        );
+
+        if (!respuesta.ok) {
+          const error = await respuesta.text();
+          throw new Error(error);
+        }
+
+        const nuevoCliente = await respuesta.json();
+
+        setClientes([
+          ...clientes,
+          nuevoCliente
+        ]);
+      }
 
       setFormulario({
         nombre: "",
@@ -429,8 +509,9 @@ useEffect(() => {
       });
 
       setMostrarFormulario(false);
+
     } catch (error) {
-      console.error("Error creando cliente:", error);
+      console.error("Error guardando cliente:", error);
     }
   };
 
@@ -482,20 +563,65 @@ useEffect(() => {
         {pantalla === "dashboard" && (
           <>
             <header className="header">
+
               <div>
                 <h1>Dashboard</h1>
                 <p>Gestioná tus clientes y presupuestos.</p>
               </div>
 
-              <button
-                className="new-budget"
-                onClick={() => {
-                  setPantalla("clientes");
-                  setMostrarFormulario(true);
-                }}
-              >
-                + Nuevo cliente
-              </button>
+              <div className="header-actions">
+
+                <button
+                  className="new-budget"
+                  onClick={() => {
+                    setFormulario({
+                      nombre: "",
+                      telefono: "",
+                      email: "",
+                      direccion: "",
+                    });
+
+                    setPantalla("clientes");
+                    setMostrarFormulario(true);
+                  }}
+                >
+                  + Nuevo cliente
+                </button>
+
+                <button
+                  className="new-budget"
+                  onClick={() => {
+
+                    if (clientes.length === 0) {
+                      alert("Primero tenés que crear un cliente.");
+                      return;
+                    }
+
+                    setPresupuestoEditando(null);
+                    
+                    setFormularioPresupuesto({
+                      cliente_id: "",
+                      descripcion: "",
+                      mano_de_obra: "",
+                    });
+
+                    setMateriales([
+                      {
+                        nombre: "",
+                        cantidad: "",
+                        precio: "",
+                      },
+                    ]);
+
+                    setPantalla("presupuestos");
+                    setMostrarFormularioPresupuesto(true);
+                  }}
+                >
+                  + Nuevo presupuesto
+                </button>
+
+              </div>
+
             </header>
 
 
@@ -532,6 +658,43 @@ useEffect(() => {
                 </strong>
                 <small>Este mes</small>
               </div>
+
+              <div className="stat-card">
+                  <span>Total presupuestado</span>
+
+                  <strong>
+                    $
+                    {presupuestos
+                      .reduce(
+                        (total, presupuesto) =>
+                          total + (Number(presupuesto.total) || 0),
+                        0
+                      )
+                      .toLocaleString("es-AR")}
+                  </strong>
+
+                  <small>Suma de todos los presupuestos</small>
+                </div>
+
+                <div className="stat-card">
+                  <span>Total aceptado</span>
+
+                  <strong>
+                    $
+                    {presupuestos
+                      .filter(
+                        (presupuesto) => presupuesto.estado === "aceptado"
+                      )
+                      .reduce(
+                        (total, presupuesto) =>
+                          total + (Number(presupuesto.total) || 0),
+                        0
+                      )
+                      .toLocaleString("es-AR")}
+                  </strong>
+
+                  <small>Presupuestos aceptados</small>
+                </div>
 
             </section>
 
@@ -578,6 +741,94 @@ useEffect(() => {
               )}
 
             </section>
+
+              <section className="card">
+
+                <div className="card-header">
+
+                  <div>
+                    <h2>Últimos presupuestos</h2>
+                    <p>Presupuestos registrados recientemente.</p>
+                  </div>
+
+                  <button
+                    className="link-button"
+                    onClick={() => setPantalla("presupuestos")}
+                  >
+                    Ver todos
+                  </button>
+
+                </div>
+
+
+                {presupuestos.length === 0 ? (
+
+                  <p>
+                    No hay presupuestos registrados todavía.
+                  </p>
+
+                ) : (
+
+                  presupuestos
+                    .slice(-3)
+                    .reverse()
+                    .map((presupuesto) => {
+
+                      const cliente = clientes.find(
+                        (cliente) =>
+                          cliente.id === presupuesto.cliente_id
+                      );
+
+                      return (
+
+                        <div
+                          className="budget-item"
+                          key={presupuesto.id}
+                        >
+
+                          <div>
+
+                            <strong>
+                              Presupuesto #{presupuesto.id}
+                            </strong>
+
+                            <span>
+                              {cliente
+                                ? cliente.nombre
+                                : "Cliente desconocido"}
+                              {" · "}
+                              {presupuesto.descripcion}
+                            </span>
+
+                          </div>
+
+
+                          <div className="budget-right">
+
+                            <strong>
+                              $
+                              {(
+                                Number(presupuesto.total) || 0
+                              ).toLocaleString("es-AR")}
+                            </strong>
+
+                            <span
+                              className={`status ${presupuesto.estado}`}
+                            >
+                              {presupuesto.estado}
+                            </span>
+
+                          </div>
+
+                        </div>
+
+                      );
+                    })
+
+                )}
+
+              </section>
+
           </>
         )}
 
@@ -731,6 +982,17 @@ useEffect(() => {
                         <span>
                           {cliente.direccion || "Sin dirección"}
                         </span>
+
+                        <div className="budget-actions">
+
+                          <button
+                            className="edit-budget-button"
+                            onClick={() => editarCliente(cliente)}
+                          >
+                            Editar
+                          </button>
+
+                        </div>
 
                       </div>
 
@@ -955,6 +1217,7 @@ useEffect(() => {
                   </form>
 
                 </section>
+               
               )}
 
 
@@ -980,7 +1243,7 @@ useEffect(() => {
 
                   <p>No hay presupuestos registrados todavía.</p>
 
-                ) : (
+                  ) : (
 
                   <div className="budget-list">
 
@@ -1019,49 +1282,60 @@ useEffect(() => {
                               ${(Number(presupuesto.total) || 0).toLocaleString("es-AR")}
                             </strong>
 
-                            <button
-                              className="edit-budget-button"
-                              onClick={() => editarPresupuesto(presupuesto)}
-                            >
-                              Editar
-                            </button>
-                            
-                            <button
-                              className="pdf-budget-button"
-                              onClick={() => generarPDF(presupuesto)}
-                            >
-                              PDF
-                            </button>
+                            <div className="budget-actions">
 
-                            <button
-                              className="delete-budget-button"
-                              onClick={() => eliminarPresupuesto(presupuesto)}
-                            >
-                              Eliminar
-                            </button>
+                              <button
+                                className="view-budget-button"
+                                onClick={() => verPresupuesto(presupuesto)}
+                              >
+                                Ver
+                              </button>
 
-                            <select
-                              value={presupuesto.estado}
-                              onChange={(e) =>
-                                cambiarEstado(
-                                  presupuesto.id,
-                                  e.target.value
-                                )
-                              }
-                              className={`status-select ${presupuesto.estado}`}
-                            >
-                              <option value="pendiente">
-                                Pendiente
-                              </option>
+                              <button
+                                className="edit-budget-button"
+                                onClick={() => editarPresupuesto(presupuesto)}
+                              >
+                                Editar
+                              </button>
 
-                              <option value="aceptado">
-                                Aceptado
-                              </option>
+                              <button
+                                className="pdf-budget-button"
+                                onClick={() => generarPDF(presupuesto)}
+                              >
+                                PDF
+                              </button>
 
-                              <option value="terminado">
-                                Terminado
-                              </option>
-                            </select>
+                              <button
+                                className="delete-budget-button"
+                                onClick={() => eliminarPresupuesto(presupuesto)}
+                              >
+                                Eliminar
+                              </button>
+
+                              <select
+                                value={presupuesto.estado}
+                                onChange={(e) =>
+                                  cambiarEstado(
+                                    presupuesto.id,
+                                    e.target.value
+                                  )
+                                }
+                                className={`status-select ${presupuesto.estado}`}
+                              >
+                                <option value="pendiente">
+                                  Pendiente
+                                </option>
+
+                                <option value="aceptado">
+                                  Aceptado
+                                </option>
+
+                                <option value="terminado">
+                                  Terminado
+                                </option>
+                              </select>
+
+                            </div>
 
                           </div>
 
@@ -1075,6 +1349,138 @@ useEffect(() => {
                 )}
 
               </section>
+            {presupuestoSeleccionado && (
+              <section className="card budget-detail">
+
+                <div className="card-header">
+
+                  <div>
+                    <h2>
+                      Presupuesto #{presupuestoSeleccionado.id}
+                    </h2>
+
+                    <p>
+                      Detalle del presupuesto
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setPresupuestoSeleccionado(null)}
+                  >
+                    Cerrar
+                  </button>
+
+                </div>
+
+
+                <div className="budget-detail-info">
+
+                  <div>
+                    <strong>Cliente</strong>
+
+                    <span>
+                      {clientes.find(
+                        (cliente) =>
+                          cliente.id === presupuestoSeleccionado.cliente_id
+                      )?.nombre || "Cliente desconocido"}
+                    </span>
+                  </div>
+
+
+                  <div>
+                    <strong>Descripción</strong>
+
+                    <span>
+                      {presupuestoSeleccionado.descripcion}
+                    </span>
+                  </div>
+
+
+                  <div>
+                    <strong>Estado</strong>
+
+                    <span className={`status ${presupuestoSeleccionado.estado}`}>
+                      {presupuestoSeleccionado.estado}
+                    </span>
+                  </div>
+
+                </div>
+
+
+                <div className="budget-detail-materials">
+
+                  <h3>Materiales</h3>
+
+                  {presupuestoSeleccionado.materiales?.length > 0 ? (
+
+                    presupuestoSeleccionado.materiales.map((material) => (
+
+                      <div
+                        className="material-detail-item"
+                        key={material.id}
+                      >
+
+                        <span>
+                          {material.nombre}
+                        </span>
+
+                        <span>
+                          {material.cantidad} x $
+                          {Number(material.precio).toLocaleString("es-AR")}
+                        </span>
+
+                        <strong>
+                          $
+                          {(
+                            Number(material.cantidad) *
+                            Number(material.precio)
+                          ).toLocaleString("es-AR")}
+                        </strong>
+
+                      </div>
+
+                    ))
+
+                  ) : (
+
+                    <p>
+                      No hay materiales registrados.
+                    </p>
+
+                  )}
+
+                </div>
+
+
+                <div className="budget-detail-total">
+
+                  <div>
+                    <span>Mano de obra</span>
+
+                    <strong>
+                      $
+                      {Number(
+                        presupuestoSeleccionado.mano_de_obra
+                      ).toLocaleString("es-AR")}
+                    </strong>
+                  </div>
+
+
+                  <div>
+                    <span>Total</span>
+
+                    <strong>
+                      $
+                      {Number(
+                        presupuestoSeleccionado.total
+                      ).toLocaleString("es-AR")}
+                    </strong>
+                  </div>
+
+                </div>
+
+              </section>
+            )}
           </>
         )}
 
